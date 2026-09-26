@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>ShareFast</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta property="og:site_name" content="ShareFast">
+  <meta property="og:title" content="Someone shared something with you">
+  <meta property="og:description" content="Open the link to view and download. It deletes itself when it expires.">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+  <link rel="preload" href="/assets/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/js/prefs.js"></script>
+  <script type="module" src="/assets/js/receive.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <a class="brand" href="/"><img src="/assets/icon.svg" alt="" width="26" height="26">ShareFast</a>
+    <nav class="header-nav" aria-label="Site">
+      <button type="button" class="header-button" data-open-settings aria-haspopup="dialog" aria-label="Accessibility settings">
+        <span data-icon="accessibility"></span><span class="header-button-label">Accessibility</span>
+      </button>
+      <a class="header-button header-button-strong" href="/"><span data-icon="upload" data-size="16"></span>Send files</a>
+    </nav>
+  </header>
+
+  <main id="main" class="page">
+    <div id="view" aria-live="polite" aria-busy="true">
+      <div class="card skeleton" aria-label="Loading">
+        <div class="skeleton-line skeleton-title"></div>
+        <div class="skeleton-line skeleton-short"></div>
+        <div class="skeleton-block"></div>
+      </div>
+    </div>
+  </main>
+
+  <dialog id="lightbox" class="lightbox" aria-label="Image preview">
+    <img id="lightbox-image" alt="">
+    <div class="lightbox-bar">
+      <span id="lightbox-name" class="lightbox-name"></span>
+      <button type="button" class="button" id="lightbox-download"><span data-icon="download" data-size="16"></span><span>Download</span></button>
+      <button type="button" class="icon-button icon-button-light" id="lightbox-close" aria-label="Close preview"><span data-icon="x"></span></button>
+    </div>
+  </dialog>
+
+  <footer class="site-footer">
+    <span>Free and <a href="https://github.com/i3sam/ShareFast">open source</a></span>
+    <span>Built by <a href="https://essam.biz">essam.biz</a></span>
+  </footer>
+</body>
+</html>

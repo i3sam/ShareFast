@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ShareFast · Send anything to any device</title>
+  <meta name="description" content="Send files, photos, text and links between any devices with a one-word link. No account, original quality, deleted when the link expires.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="canonical" href="https://sharefast.essam.biz/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="ShareFast">
+  <meta property="og:url" content="https://sharefast.essam.biz/">
+  <meta property="og:title" content="ShareFast · Send anything to any device">
+  <meta property="og:description" content="Files, photos, text and links with a one-word link. No account, original quality, deleted when the link expires.">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+  <link rel="preload" href="/assets/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/js/prefs.js"></script>
+  <script type="module" src="/assets/js/send.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <a class="brand" href="/"><img src="/assets/icon.svg" alt="" width="26" height="26">ShareFast</a>
+    <nav class="header-nav" aria-label="Site">
+      <button type="button" class="header-button" data-open-settings aria-haspopup="dialog" aria-label="Accessibility settings">
+        <span data-icon="accessibility"></span><span class="header-button-label">Accessibility</span>
+      </button>
+      <a class="header-button" href="https://github.com/i3sam/ShareFast">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="main" class="page">
+    <section class="hero enter">
+      <h1>Send anything to any device.</h1>
+      <p>Files, photos, text and links. Original quality, no account.</p>
+    </section>
+
+    <div class="tabs enter" role="tablist" aria-label="Choose what to do">
+      <span class="tabs-indicator" aria-hidden="true"></span>
+      <button type="button" role="tab" id="tab-send" aria-controls="panel-send" aria-selected="true">
+        <span data-icon="upload" data-size="16"></span>Send
+      </button>
+      <button type="button" role="tab" id="tab-receive" aria-controls="panel-receive" aria-selected="false" tabindex="-1">
+        <span data-icon="download" data-size="16"></span>Receive
+      </button>
+    </div>
+
+    <section id="panel-send" class="panel enter" role="tabpanel" aria-labelledby="tab-send">
+      <form id="composer" class="card composer" novalidate>
+        <input id="file-input" type="file" multiple hidden>
+        <input id="photo-input" type="file" accept="image/*,video/*,.heic,.heif" multiple hidden>
+        <input id="camera-input" type="file" accept="image/*" capture="environment" hidden>
+
+        <div id="dropzone" class="dropzone">
+          <span class="dropzone-art" data-icon="upload" data-size="22"></span>
+          <p class="dropzone-title"><span class="hover-only">Drop files anywhere on the page</span><span class="touch-only">Tap to choose files</span></p>
+          <p class="dropzone-hint">Up to <span id="size-limit">1 GB</span> per share, in original quality</p>
+        </div>
+
+        <div class="quick-actions" role="group" aria-label="Add content">
+          <button type="button" class="tile" id="pick-files"><span data-icon="file" data-size="20"></span>Files</button>
+          <button type="button" class="tile" id="pick-photos"><span data-icon="image" data-size="20"></span>Photos</button>
+          <button type="button" class="tile touch-only" id="take-photo"><span data-icon="camera" data-size="20"></span>Camera</button>
+          <button type="button" class="tile" id="paste"><span data-icon="clipboard" data-size="20"></span>Paste</button>
+        </div>
+
+        <div id="files" class="files" hidden>
+          <div class="files-head">
+            <span id="file-total" aria-live="polite"></span>
+            <button type="button" class="text-button" id="clear-files">Clear all</button>
+          </div>
+          <ul id="file-list" class="file-list"></ul>
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <label class="label" for="text">Text or link</label>
+            <button type="button" class="text-button" id="clear-text" hidden>Clear</button>
+          </div>
+          <textarea id="text" rows="3" placeholder="Type or paste a note, a link, an address…"></textarea>
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <label class="label" for="slug">Your link</label>
+            <span id="slug-status" class="status" aria-live="polite"></span>
+          </div>
+          <div class="input-group">
+            <span class="input-prefix" data-host>sharefast.essam.biz/</span>
+            <input id="slug" type="text" inputmode="url" enterkeyhint="send" maxlength="40" placeholder="word"
+                   autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+            <button type="button" class="input-button" id="shuffle" aria-label="Suggest a different word" title="Suggest a different word">
+              <span data-icon="shuffle"></span>
+            </button>
+          </div>
+        </div>
+
+        <fieldset class="field">
+          <legend class="label">Delete after</legend>
+          <div id="expiry" class="segmented"></div>
+        </fieldset>
+
+        <div class="field">
+          <div class="field-head">
+            <label class="label" for="password">Password <span class="optional">optional</span></label>
+            <span class="status">Encrypted in your browser</span>
+          </div>
+          <div class="input-group">
+            <span class="input-icon" data-icon="lock" data-size="16"></span>
+            <input id="password" type="password" enterkeyhint="send" autocomplete="new-password" placeholder="No password">
+            <button type="button" class="input-button" id="toggle-password" aria-label="Show password" aria-pressed="false">
+              <span data-icon="eye"></span>
+            </button>
+          </div>
+        </div>
+
+        <p id="composer-error" class="error" role="alert" hidden></p>
+
+        <button type="submit" class="button button-primary button-lg" id="submit">
+          <span class="spinner" aria-hidden="true"></span><span>Create link</span>
+        </button>
+        <p class="shortcut-hint hover-only"><kbd data-mod>⌘</kbd><kbd>Enter</kbd> to send &nbsp;·&nbsp; <kbd data-mod>⌘</kbd><kbd>V</kbd> to paste</p>
+      </form>
+
+      <section id="result" class="card result" hidden tabindex="-1" aria-labelledby="result-title">
+        <div class="result-status">
+          <div class="progress-ring" id="progress-ring">
+            <svg viewBox="0 0 52 52" aria-hidden="true">
+              <circle class="progress-ring-track" cx="26" cy="26" r="23"/>
+              <circle class="progress-ring-fill" id="progress-ring-fill" cx="26" cy="26" r="23" pathLength="100"/>
+            </svg>
+            <span class="progress-ring-value" id="progress-value">0%</span>
+            <span class="progress-ring-check" data-icon="check" data-size="24"></span>
+          </div>
+          <div class="result-heading">
+            <h2 id="result-title">Uploading</h2>
+            <p id="result-detail" class="muted" aria-live="polite"></p>
+          </div>
+        </div>
+
+        <div class="link-box">
+          <a id="result-link" class="link-box-url" href="/" target="_blank" rel="noopener"></a>
+          <button type="button" class="button button-primary" id="copy-link">
+            <span data-icon="copy" data-size="16"></span><span>Copy</span>
+          </button>
+        </div>
+
+        <div class="result-meta">
+          <span id="result-countdown"></span>
+          <span id="result-summary" class="muted"></span>
+        </div>
+
+        <div class="action-grid" role="group" aria-label="Share options">
+          <button type="button" class="action" id="share-link" hidden><span data-icon="share"></span>Share</button>
+          <a class="action" id="open-link" href="/" target="_blank" rel="noopener"><span data-icon="external"></span>Open</a>
+          <a class="action" id="email-link" href="mailto:"><span data-icon="mail"></span>Email</a>
+          <button type="button" class="action" id="toggle-qr" aria-expanded="false" aria-controls="qr-panel"><span data-icon="qr"></span>QR code</button>
+        </div>
+
+        <div id="qr-panel" class="qr-panel" hidden>
+          <img id="qr" alt="QR code for your link" width="168" height="168">
+          <p class="muted">Point your phone camera here to open the link.</p>
+        </div>
+
+        <div class="result-footer">
+          <button type="button" class="button" id="send-another"><span data-icon="upload" data-size="16"></span>New share</button>
+          <button type="button" class="button button-danger" id="delete-share"><span data-icon="trash" data-size="16"></span>Delete</button>
+        </div>
+      </section>
+    </section>
+
+    <section id="panel-receive" class="panel" role="tabpanel" aria-labelledby="tab-receive" hidden>
+      <form id="receive-form" class="card receive" novalidate>
+        <div class="receive-head">
+          <span class="icon-tile" data-icon="download" data-size="22"></span>
+          <div>
+            <h2>Open a share</h2>
+            <p class="muted">Type the word you were given, or paste the whole link.</p>
+          </div>
+        </div>
+        <div class="input-group input-group-lg">
+          <span class="input-prefix" data-host>sharefast.essam.biz/</span>
+          <input id="receive-slug" type="text" inputmode="url" enterkeyhint="go" placeholder="otter" aria-label="Link word"
+                 autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+          <button type="button" class="input-button" id="receive-paste" aria-label="Paste link" title="Paste link">
+            <span data-icon="clipboard"></span>
+          </button>
+        </div>
+        <p id="receive-error" class="error" role="alert" hidden></p>
+        <button type="submit" class="button button-primary button-lg">Open<span data-icon="arrow-right" data-size="16"></span></button>
+      </form>
+    </section>
+
+    <section id="recent" class="card recent enter" hidden aria-labelledby="recent-title">
+      <div class="card-head">
+        <h2 id="recent-title">Your shares</h2>
+        <span class="muted small">Saved in this browser only</span>
+      </div>
+      <ul id="recent-list" class="recent-list"></ul>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>Free and <a href="https://github.com/i3sam/ShareFast">open source</a></span>
+    <span>Built by <a href="https://essam.biz">essam.biz</a></span>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "name": "sharefast",
+  "version": "1.0.0",
+  "description": "Send files, photos, text and links between devices with one link.",
+  "license": "MIT",
+  "author": "Essam (https://essam.biz)",
+  "homepage": "https://sharefast.essam.biz",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  }
+}

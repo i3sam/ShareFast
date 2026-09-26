@@ -12,5 +12,4 @@ RUN mkdir -p data && chown node:node data
 
 USER node
 EXPOSE 3000
-VOLUME ["/app/data"]
 CMD ["node", "server/index.js"]

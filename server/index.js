@@ -1,27 +1,26 @@
 import http from 'node:http';
 import { createApp } from './app.js';
+import { createBackend } from './backends/index.js';
 import { loadConfig } from './config.js';
-import { ShareStore } from './store.js';
 
 const SWEEP_INTERVAL_MS = 60_000;
 const UPLOAD_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
 const config = loadConfig();
-const store = new ShareStore({ dir: config.dataDir });
-await store.init();
+const backend = await createBackend(config);
 
-const server = http.createServer({ requestTimeout: UPLOAD_TIMEOUT_MS }, createApp({ store, config }));
+const server = http.createServer({ requestTimeout: UPLOAD_TIMEOUT_MS }, createApp({ backend, config }));
 
 const sweeper = setInterval(async () => {
   try {
-    await store.sweep();
+    await backend.sweep();
   } catch (error) {
     console.error('Failed to remove expired shares:', error);
   }
 }, SWEEP_INTERVAL_MS);
 
 server.listen(config.port, config.host, () => {
-  console.log(`ShareFast is running on http://localhost:${config.port}`);
+  console.log(`ShareFast is running on http://localhost:${config.port} (${backend.constructor.name})`);
 });
 
 function shutdown() {

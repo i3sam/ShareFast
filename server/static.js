@@ -19,10 +19,13 @@ const CONTENT_TYPES = {
   '.webmanifest': 'application/manifest+json',
 };
 
-const PAGE_CSP = [
+// Kept in sync with vercel.json by a test. The Vercel Blob hosts are only
+// used when files live in Blob storage.
+export const PAGE_CSP = [
   "default-src 'self'",
-  "img-src 'self' blob: data:",
-  "media-src 'self' blob:",
+  "connect-src 'self' https://vercel.com https://*.blob.vercel-storage.com",
+  "img-src 'self' blob: data: https://*.blob.vercel-storage.com",
+  "media-src 'self' blob: https://*.blob.vercel-storage.com",
   "object-src 'none'",
   "base-uri 'none'",
   "form-action 'self'",

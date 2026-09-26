@@ -10,8 +10,8 @@ const SECURITY_HEADERS = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
 };
 
-export function createApp({ store, config }) {
-  const handleApi = createApi({ store, config });
+export function createApp({ backend, config, serveStaticFiles = true }) {
+  const handleApi = createApi({ backend, config });
 
   return async function handleRequest(req, res) {
     for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
@@ -22,8 +22,10 @@ export function createApp({ store, config }) {
       const url = new URL(req.url, 'http://localhost');
       if (url.pathname.startsWith('/api/')) {
         await handleApi(req, res, url);
-      } else {
+      } else if (serveStaticFiles) {
         await serveStatic(req, res, url.pathname);
+      } else {
+        throw new HttpError(404, 'Not found.');
       }
     } catch (error) {
       respondWithError(res, error);

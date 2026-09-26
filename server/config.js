@@ -15,15 +15,19 @@ export const EXPIRY_OPTIONS = [
 export const DEFAULT_EXPIRY = HOUR;
 
 export function loadConfig(env = process.env) {
+  // Vercel Blob's free tier holds 1 GB in total, so the defaults there are smaller.
+  const onVercel = Boolean(env.VERCEL);
+
   return Object.freeze({
     port: readInt(env, 'PORT', 3000),
     host: env.HOST || '0.0.0.0',
     dataDir: path.resolve(env.DATA_DIR || 'data'),
-    maxShareBytes: readInt(env, 'MAX_SHARE_MB', 1024) * MB,
-    maxStorageBytes: readInt(env, 'MAX_STORAGE_MB', 20 * 1024) * MB,
+    maxShareBytes: readInt(env, 'MAX_SHARE_MB', onVercel ? 250 : 1024) * MB,
+    maxStorageBytes: readInt(env, 'MAX_STORAGE_MB', onVercel ? 900 : 20 * 1024) * MB,
     maxFiles: readInt(env, 'MAX_FILES', 50),
     maxTextBytes: MB,
-    trustProxy: env.TRUST_PROXY === 'true',
+    trustProxy: onVercel || env.TRUST_PROXY === 'true',
+    cronSecret: env.CRON_SECRET || null,
   });
 }
 

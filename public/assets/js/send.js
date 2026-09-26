@@ -13,7 +13,12 @@ const limits = {
   maxShareBytes: 1024 ** 3,
   maxFiles: 50,
   maxTextBytes: 1024 ** 2,
-  expiryOptions: [{ seconds: 3600, label: '1 hour' }],
+  expiryOptions: [
+    { seconds: 600, label: '10 min' },
+    { seconds: 3600, label: '1 hour' },
+    { seconds: 86400, label: '1 day' },
+    { seconds: 604800, label: '7 days' },
+  ],
   defaultExpiry: 3600,
 };
 
@@ -64,8 +69,9 @@ function init() {
 async function loadLimits() {
   try {
     Object.assign(limits, await api.config());
-  } catch {
-    // Keep the defaults. Anything that really fails will surface on submit.
+  } catch (error) {
+    // A 503 carries a setup message from the server, like missing storage.
+    showError(error.status === 503 ? error.message : "Can't reach the ShareFast server right now. Refresh to try again.");
   }
   $('#size-limit').textContent = formatBytes(limits.maxShareBytes);
   renderExpiryOptions();

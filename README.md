@@ -21,9 +21,9 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-black" alt="MIT license"></a>
-  <img src="https://img.shields.io/badge/node-%E2%89%A520-black" alt="Node.js 20 or newer">
-  <img src="https://img.shields.io/badge/dependencies-1-black" alt="One dependency">
-  <img src="https://img.shields.io/badge/build%20step-none-black" alt="No build step">
+  <img src="https://img.shields.io/badge/node-%E2%89%A522-black" alt="Node.js 22 or newer">
+  <img src="https://img.shields.io/badge/deploy-Vercel-black" alt="Deploys to Vercel">
+  <img src="https://img.shields.io/badge/framework-none-black" alt="No framework">
 </p>
 
 <p align="center">
@@ -41,7 +41,7 @@ It's built for the everyday case of moving a photo from an iPhone to a Windows l
 - **Any file, original quality.** Files are stored byte for byte. Nothing is compressed, resized or converted.
 - **Text and links.** Paste a note or a URL and copy it or open it on the other side.
 - **One-word links.** A free word is suggested before you send, so you know the link up front. Shuffle for another or type your own.
-- **Expiry with a live countdown.** Pick 10 minutes, 1 hour, 1 day or 7 days. Both sides see the time left, and expired shares are deleted from disk.
+- **Expiry with a live countdown.** Pick 10 minutes, 1 hour, 1 day or 7 days. Both sides see the time left, and expired shares are deleted.
 - **Password protection.** With a password, files, names and text are encrypted in your browser before upload. The server never sees any of them.
 - **Made for phones.** Camera and photo library buttons, Save to Photos through the share sheet, 44px tap targets, and the screen stays awake during uploads.
 - **Quick sharing.** Copy, share, open, email or show a QR code for the link. Paste straight from the clipboard, or drag files anywhere on the page.
@@ -50,16 +50,16 @@ It's built for the everyday case of moving a photo from an iPhone to a Windows l
 
 ## Running locally
 
-Requires Node.js 20 or newer.
+Requires Node.js 22 or newer.
 
 ```sh
 git clone https://github.com/i3sam/ShareFast.git
 cd ShareFast
 npm install
-npm start
+npm run dev
 ```
 
-Open http://localhost:3000. To try it from your phone on the same Wi-Fi, use your computer's local IP address, for example `http://192.168.1.20:3000`.
+Open http://localhost:3000. Locally, files are kept in `./data` on your disk, so no accounts are needed. To try it from your phone on the same Wi-Fi, use your computer's local IP address, for example `http://192.168.1.20:3000`.
 
 Clipboard access and password encryption only work on secure origins. `localhost` counts as secure, a LAN IP over plain `http` does not, so those two features need HTTPS when testing from another device.
 
@@ -71,17 +71,36 @@ Settings are read from environment variables.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `PORT` | `3000` | Port to listen on |
-| `HOST` | `0.0.0.0` | Interface to bind to |
-| `DATA_DIR` | `./data` | Where files are kept until they expire |
-| `MAX_SHARE_MB` | `1024` | Maximum size of one share |
-| `MAX_STORAGE_MB` | `20480` | Total disk space all shares may use |
+| `MAX_SHARE_MB` | `1024` (`250` on Vercel) | Maximum size of one share |
+| `MAX_STORAGE_MB` | `20480` (`900` on Vercel) | Total space all shares may use |
 | `MAX_FILES` | `50` | Maximum files per share |
-| `TRUST_PROXY` | `false` | Set to `true` behind a reverse proxy so rate limits see the real client IP |
+| `CRON_SECRET` | | When set, only Vercel Cron can trigger the cleanup job |
+| `PORT` | `3000` | Port to listen on (self-hosted) |
+| `HOST` | `0.0.0.0` | Interface to bind to (self-hosted) |
+| `DATA_DIR` | `./data` | Where files are kept until they expire (self-hosted) |
+| `TRUST_PROXY` | `false` | Set to `true` behind a reverse proxy so rate limits see the real client IP (always on for Vercel) |
 
-## Deploying
+The Vercel defaults fit the free Blob tier, which holds 1 GB in total. Raise them if your plan allows.
 
-ShareFast keeps files on local disk, so it needs a server or container with a persistent volume (a VPS, Fly.io, Railway and so on) rather than a static or serverless host. Run a single instance.
+## Deploying to Vercel
+
+This is how [sharefast.essam.biz](https://sharefast.essam.biz) runs. Files go to Vercel Blob and share details to Upstash Redis, both of which have free tiers.
+
+1. **Import the repo.** In Vercel, choose **Add New → Project** and import this repository. Keep the default settings; `vercel.json` already sets everything up.
+2. **Add Blob storage.** In the project, open **Storage → Create → Blob**, choose **Public** access, and connect it to the project. This adds `BLOB_READ_WRITE_TOKEN`.
+3. **Add Redis.** In **Storage → Create**, pick **Upstash for Redis** from the Marketplace and connect it to the project. This adds the `KV_REST_API_URL` and `KV_REST_API_TOKEN` variables.
+4. **Redeploy** so the new variables are picked up (**Deployments → ⋯ → Redeploy**).
+5. **Add your domain** under **Settings → Domains**, for example `sharefast.yourdomain.com`.
+
+Until storage is connected, the site shows a message saying what's missing.
+
+A daily [Vercel Cron](https://vercel.com/docs/cron-jobs) job removes expired files. Expired shares stop opening the moment they expire, and a few are also cleared out every time someone creates a share.
+
+To develop against the real services locally, pull the variables into `.env.local` with `vercel env pull` and run `npm run dev`.
+
+## Self-hosting
+
+Without the Vercel variables, ShareFast stores files on local disk. That needs a server or container with a persistent volume (a VPS, Fly.io, Railway and so on). Run a single instance.
 
 With Docker:
 
@@ -104,14 +123,15 @@ Links and QR codes use whatever domain the site is served from, so there is noth
 
 ## How it works
 
-The server is plain Node.js with one dependency (`qrcode`). The frontend is HTML, CSS and JavaScript modules with no build step. The typeface is [Geist](https://vercel.com/font), self-hosted under the SIL Open Font License.
+The server is plain Node.js with no framework. The frontend is HTML, CSS and JavaScript modules; the only build step bundles the Vercel Blob upload client for the browser. The typeface is [Geist](https://vercel.com/font), self-hosted under the SIL Open Font License.
 
-1. The browser asks the server to create a share and gets back the link and a private upload token.
-2. Each file is streamed to disk with a `PUT` request. The server checks it matches the size that was announced.
-3. The share opens once every file is in. Anyone who opens the link early sees upload progress.
-4. A sweeper runs every minute and deletes expired shares.
+1. The browser asks the server to create a share and gets back the link, a private owner token, and where to upload each file.
+2. Each file is uploaded. On Vercel it goes straight from the browser to Blob storage with a single-use token that can only write that one file, at its announced size. Self-hosted, it's streamed to the server's disk.
+3. The browser confirms each upload, and the server checks the stored file matches the announced size.
+4. The share opens once every file is in. Anyone who opens the link early sees upload progress.
+5. Expired shares are cleaned up in the background.
 
-Each share is a folder in `DATA_DIR` with a `meta.json` and one file per upload, so shares survive a restart.
+The API is the same either way. `server/backends/` has one implementation for Vercel (Blob and Redis) and one for local disk.
 
 ### Encryption
 
@@ -126,8 +146,8 @@ The server stores only ciphertext, the salt and the IVs. A wrong password fails 
 ### Security notes
 
 - One-word links are easy to type, which also makes them easy to guess. Looking up links that don't exist is tightly rate limited per IP, but that only slows guessing down. Use a password for anything private and send it separately from the link.
-- Uploaded files are always served as downloads with `Content-Security-Policy: sandbox`. Only common image, video and audio types are shown inline as previews, never HTML or SVG.
-- Every page has a strict Content Security Policy with no inline scripts and no third-party requests.
+- Uploaded files are served as downloads by default. Only common image, video and audio types are shown inline as previews, never HTML or SVG. On Vercel, files are served from Blob's own domain, and each share's files sit under a random 32-character folder name.
+- Every page has a strict Content Security Policy with no inline scripts. The only outside hosts it allows are Vercel's Blob storage endpoints.
 
 ### iPhone photos
 
@@ -136,19 +156,22 @@ Safari can convert HEIC photos to JPEG when they're picked from the photo librar
 ## Project layout
 
 ```
+api/index.js        Vercel Function entry point
 server/
-  index.js          starts the HTTP server and the expiry sweeper
+  index.js          local and self-hosted server
   app.js            request handling, security headers, errors
   api.js            API routes
-  store.js          share storage on disk
+  backends/         storage: vercel.js (Blob + Redis) and disk.js
   validate.js       request validation
-  static.js         pages and assets
+  static.js         pages and assets when self-hosted
 public/
   index.html        send page
   share.html        receive page
   assets/app.css    all styles
   assets/js/        browser modules: send, receive, crypto, countdown, settings
+scripts/            the Blob upload client bundled by `npm run build`
 test/               node:test suites
+vercel.json         routes, headers and the daily cleanup job
 ```
 
 ## Open source

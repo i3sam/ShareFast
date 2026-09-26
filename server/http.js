@@ -23,6 +23,15 @@ export async function readJson(req, limit) {
     throw new HttpError(415, 'Expected a JSON body.');
   }
 
+  // Vercel's Node runtime parses the body itself (and throws on invalid JSON).
+  let preParsed;
+  try {
+    preParsed = req.body;
+  } catch {
+    throw new HttpError(400, 'Request body is not valid JSON.');
+  }
+  if (preParsed !== undefined) return parsedBody(preParsed);
+
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
@@ -33,6 +42,15 @@ export async function readJson(req, limit) {
 
   try {
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch {
+    throw new HttpError(400, 'Request body is not valid JSON.');
+  }
+}
+
+function parsedBody(body) {
+  if (typeof body === 'object' && body !== null && !Buffer.isBuffer(body)) return body;
+  try {
+    return JSON.parse(body.toString());
   } catch {
     throw new HttpError(400, 'Request body is not valid JSON.');
   }

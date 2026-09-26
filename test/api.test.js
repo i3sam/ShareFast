@@ -6,20 +6,20 @@ import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { createApp } from '../server/app.js';
 import { loadConfig } from '../server/config.js';
-import { ShareStore } from '../server/store.js';
+import { DiskBackend } from '../server/backends/disk.js';
 
 let server;
-let store;
+let backend;
 let dataDir;
 let baseUrl;
 
 before(async () => {
   dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sharefast-'));
   const config = loadConfig({ DATA_DIR: dataDir, MAX_SHARE_MB: '1' });
-  store = new ShareStore({ dir: config.dataDir });
-  await store.init();
+  backend = new DiskBackend({ dir: config.dataDir });
+  await backend.init();
 
-  server = http.createServer(createApp({ store, config }));
+  server = http.createServer(createApp({ backend, config }));
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
@@ -94,9 +94,13 @@ describe('files', () => {
   test('uploads and downloads a file byte for byte', async () => {
     const share = await createShare({ files: [{ name: 'photo.png', type: 'image/png', size: bytes.length }] });
     assert.equal(share.ready, false);
+    assert.deepEqual(share.uploads, [{ method: 'PUT', url: `/api/shares/${share.slug}/files/0` }]);
 
-    const upload = await call(`/api/shares/${share.slug}/files/0`, { method: 'PUT', body: bytes, token: share.token });
+    const upload = await call(share.uploads[0].url, { method: 'PUT', body: bytes, token: share.token });
     assert.equal(upload.status, 200);
+
+    const complete = await call(`/api/shares/${share.slug}/files/0/complete`, { method: 'POST', body: {}, token: share.token });
+    assert.deepEqual(await complete.json(), { ready: true });
 
     const read = await (await call(`/api/shares/${share.slug}`)).json();
     assert.equal(read.ready, true);
@@ -210,18 +214,18 @@ describe('deleting and expiry', () => {
 
   test('sweeping removes expired shares from memory and disk', async () => {
     const share = await createShare({ text: 'short lived', expiresIn: 600 });
-    const removed = await store.sweep(share.expiresAt + 1);
+    const removed = await backend.sweep({ now: share.expiresAt + 1 });
 
     assert.ok(removed >= 1);
-    assert.equal(store.has(share.slug), false);
+    assert.equal(await backend.isTaken(share.slug), false);
     await assert.rejects(fs.access(path.join(dataDir, share.slug)));
   });
 
   test('shares survive a restart', async () => {
     const share = await createShare({ slug: 'keep-me', text: 'still here' });
-    const reloaded = new ShareStore({ dir: dataDir });
+    const reloaded = new DiskBackend({ dir: dataDir });
     await reloaded.init();
-    assert.equal(reloaded.get(share.slug).text, 'still here');
+    assert.equal((await reloaded.get(share.slug)).text, 'still here');
   });
 });
 

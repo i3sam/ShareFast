@@ -36,6 +36,7 @@ export const api = {
   createShare: (input) => request('/api/shares', { method: 'POST', body: input }),
   getShare: (slug) => request(sharePath(slug)),
   deleteShare: (slug, token) => request(sharePath(slug), { method: 'DELETE', token }),
+  presignUpload: (path, token) => request(path, { method: 'POST', body: {}, token }),
   completeUpload: (slug, fileId, token) =>
     request(`${sharePath(slug)}/files/${fileId}/complete`, { method: 'POST', body: {}, token }),
 };
@@ -49,12 +50,13 @@ export function qrUrl(text) {
 }
 
 // XHR rather than fetch, because fetch still can't report upload progress.
-export function uploadFile({ url, body, token, onProgress }) {
+export function uploadFile({ url, body, headers = {}, onProgress }) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', url);
-    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+    for (const [name, value] of Object.entries({ 'Content-Type': 'application/octet-stream', ...headers })) {
+      xhr.setRequestHeader(name, value);
+    }
 
     xhr.upload.onprogress = (event) => onProgress?.(event.loaded);
     xhr.onerror = () => reject(new ApiError(0, 'The upload was interrupted. Check your connection.'));

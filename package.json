@@ -11,17 +11,13 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "esbuild scripts/blob-client.js --bundle --format=esm --platform=browser --minify --outfile=public/assets/vendor/blob-client.js",
     "start": "node server/index.js",
-    "dev": "npm run build && node --env-file-if-exists=.env.local --watch server/index.js",
+    "dev": "node --env-file-if-exists=.env.local --watch server/index.js",
     "test": "node --test"
   },
   "dependencies": {
     "@upstash/redis": "^1.39.0",
     "@vercel/blob": "^2.8.0",
     "qrcode": "^1.5.4"
-  },
-  "devDependencies": {
-    "esbuild": "^0.28.2"
   }
 }

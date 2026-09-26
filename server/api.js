@@ -29,7 +29,7 @@ export function createApi({ backend, config }) {
     .on('GET', '/api/shares/:slug', getShare)
     .on('DELETE', '/api/shares/:slug', deleteShare)
     .on('PUT', '/api/shares/:slug/files/:fileId', receiveUpload)
-    .on('POST', '/api/shares/:slug/files/:fileId/token', authorizeUpload)
+    .on('POST', '/api/shares/:slug/files/:fileId/presign', presignUpload)
     .on('POST', '/api/shares/:slug/files/:fileId/complete', completeUpload)
     .on('GET', '/api/shares/:slug/files/:fileId', downloadFile);
 
@@ -150,11 +150,10 @@ export function createApi({ backend, config }) {
     sendJson(res, 200, { ready: isReady(share) });
   }
 
-  // Vercel only: the browser asks for a token, then uploads straight to Blob.
-  async function authorizeUpload({ req, res, params }) {
+  // Vercel only: the browser gets a presigned URL, then uploads straight to Blob.
+  async function presignUpload({ req, res, params }) {
     const { share, file } = await requireOwnedFile(req, params);
-    const body = await readJson(req, 64 * 1024);
-    sendJson(res, 200, await backend.authorizeUpload(req, body, share, file));
+    sendJson(res, 200, await backend.presignUpload(share, file));
   }
 
   async function completeUpload({ req, res, params }) {

@@ -1,15 +1,13 @@
 import { randomBytes } from 'node:crypto';
-import { BlobNotFoundError, del, head } from '@vercel/blob';
-import { handleUpload } from '@vercel/blob/client';
+import { BlobNotFoundError, del, head, issueSignedToken, presignUrl } from '@vercel/blob';
 import { canPreview } from '../files.js';
 import { HttpError } from '../http.js';
 
-const DAY = 24 * 60 * 60 * 1000;
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
 // Share records outlive their expiry long enough for the daily cleanup job to
 // find them and delete their files. Reads treat them as gone right away.
 const RECORD_GRACE_MS = 8 * DAY;
-// Above this size the browser uploads in parallel parts.
-const MULTIPART_THRESHOLD = 64 * 1024 * 1024;
 
 const EXPIRING_KEY = 'expiring';
 const USAGE_KEY = 'usage:bytes';
@@ -17,13 +15,14 @@ const shareKey = (slug) => `share:${slug}`;
 const filesKey = (slug) => `share:${slug}:files`;
 
 // Runs on Vercel: share records live in Upstash Redis, files in a public
-// Vercel Blob store. Browsers upload straight to Blob, so file size isn't
-// limited by the 4.5 MB function body limit.
+// Vercel Blob store. Browsers upload straight to Blob through presigned URLs,
+// so file size isn't limited by the 4.5 MB function body limit. Works with
+// both OIDC (BLOB_STORE_ID) and BLOB_READ_WRITE_TOKEN credentials.
 export class VercelBackend {
   #redis;
   #blob;
 
-  constructor({ redis, blob = { del, head, handleUpload } }) {
+  constructor({ redis, blob = { del, head, issueSignedToken, presignUrl } }) {
     this.#redis = redis;
     this.#blob = blob;
   }
@@ -66,42 +65,37 @@ export class VercelBackend {
     return share;
   }
 
+  // The browser asks for the actual upload URL right before sending each
+  // file, so a long queue of uploads never runs into an expired URL.
   uploadTarget(share, file) {
-    return {
-      blob: {
-        pathname: file.pathname,
-        access: 'public',
-        handleUploadUrl: `/api/shares/${share.slug}/files/${file.id}/token`,
-        multipart: file.size > MULTIPART_THRESHOLD,
-      },
-    };
+    return { presign: `/api/shares/${share.slug}/files/${file.id}/presign` };
   }
 
   async receiveUpload() {
     throw new HttpError(404, 'Files are uploaded directly to storage.');
   }
 
-  // Hands the browser a short-lived token that can write exactly one blob:
-  // this file's path, at most its announced size, and never over an existing one.
-  async authorizeUpload(req, body, share, file) {
+  // A presigned URL that can write exactly one blob: this file's path, at most
+  // its announced size, never over an existing one, and only for the next hour.
+  async presignUpload(share, file) {
     if (file.uploaded) throw new HttpError(409, 'This file has already been uploaded.');
 
-    try {
-      return await this.#blob.handleUpload({
-        body,
-        request: req,
-        onBeforeGenerateToken: async (pathname) => {
-          if (pathname !== file.pathname) throw new Error('Unexpected upload path.');
-          return {
-            maximumSizeInBytes: Math.max(file.size, 1),
-            addRandomSuffix: false,
-            allowOverwrite: false,
-          };
-        },
-      });
-    } catch (error) {
-      throw new HttpError(400, error.message || 'Could not authorize this upload.');
-    }
+    const limits = {
+      pathname: file.pathname,
+      maximumSizeInBytes: Math.max(file.size, 1),
+      validUntil: Math.min(Date.now() + HOUR, share.expiresAt),
+    };
+    const token = await this.#blob.issueSignedToken({ ...limits, operations: ['put'] });
+    const { presignedUrl } = await this.#blob.presignUrl(token, {
+      ...limits,
+      operation: 'put',
+      access: 'public',
+      addRandomSuffix: false,
+      allowOverwrite: false,
+    });
+
+    const contentType = share.encryption === null ? file.type : 'application/octet-stream';
+    return { url: presignedUrl, headers: { 'Content-Type': contentType } };
   }
 
   async completeUpload(share, file) {

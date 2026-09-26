@@ -87,7 +87,7 @@ The Vercel defaults fit the free Blob tier, which holds 1 GB in total. Raise the
 This is how [sharefast.essam.biz](https://sharefast.essam.biz) runs. Files go to Vercel Blob and share details to Upstash Redis, both of which have free tiers.
 
 1. **Import the repo.** In Vercel, choose **Add New → Project** and import this repository. Keep the default settings; `vercel.json` already sets everything up.
-2. **Add Blob storage.** In the project, open **Storage → Create → Blob**, choose **Public** access, and connect it to the project. This adds `BLOB_READ_WRITE_TOKEN`.
+2. **Add Blob storage.** In the project, open **Storage → Create → Blob**, choose **Public** access, and connect it to the project. This adds `BLOB_STORE_ID` (or `BLOB_READ_WRITE_TOKEN` on older stores).
 3. **Add Redis.** In **Storage → Create**, pick **Upstash for Redis** from the Marketplace and connect it to the project. This adds the `KV_REST_API_URL` and `KV_REST_API_TOKEN` variables.
 4. **Redeploy** so the new variables are picked up (**Deployments → ⋯ → Redeploy**).
 5. **Add your domain** under **Settings → Domains**, for example `sharefast.yourdomain.com`.
@@ -123,10 +123,10 @@ Links and QR codes use whatever domain the site is served from, so there is noth
 
 ## How it works
 
-The server is plain Node.js with no framework. The frontend is HTML, CSS and JavaScript modules; the only build step bundles the Vercel Blob upload client for the browser. The typeface is [Geist](https://vercel.com/font), self-hosted under the SIL Open Font License.
+The server is plain Node.js with no framework. The frontend is HTML, CSS and JavaScript modules with no build step. The typeface is [Geist](https://vercel.com/font), self-hosted under the SIL Open Font License.
 
 1. The browser asks the server to create a share and gets back the link, a private owner token, and where to upload each file.
-2. Each file is uploaded. On Vercel it goes straight from the browser to Blob storage with a single-use token that can only write that one file, at its announced size. Self-hosted, it's streamed to the server's disk.
+2. Each file is uploaded. On Vercel it goes straight from the browser to Blob storage through a presigned URL that can only write that one file, at its announced size, within the hour. Self-hosted, it's streamed to the server's disk.
 3. The browser confirms each upload, and the server checks the stored file matches the announced size.
 4. The share opens once every file is in. Anyone who opens the link early sees upload progress.
 5. Expired shares are cleaned up in the background.
@@ -169,7 +169,6 @@ public/
   share.html        receive page
   assets/app.css    all styles
   assets/js/        browser modules: send, receive, crypto, countdown, settings
-scripts/            the Blob upload client bundled by `npm run build`
 test/               node:test suites
 vercel.json         routes, headers and the daily cleanup job
 ```

@@ -109,9 +109,12 @@ class FakeBlob {
     for (const pathname of [pathnames].flat()) this.files.delete(pathname);
   };
 
-  handleUpload = async ({ body, onBeforeGenerateToken }) => {
-    const options = await onBeforeGenerateToken(body.payload.pathname, null, false);
-    return { type: 'blob.generate-client-token', clientToken: 'client-token', options };
+  issueSignedToken = async (options) => ({ delegationToken: 'delegation', clientSigningToken: 'secret', options });
+
+  presignUrl = async (token, options) => {
+    assert.equal(options.pathname, token.options.pathname);
+    const query = new URLSearchParams({ max: options.maximumSizeInBytes, overwrite: options.allowOverwrite });
+    return { presignedUrl: `https://vercel.com/api/blob/?pathname=${options.pathname}&${query}` };
   };
 }
 
@@ -151,41 +154,31 @@ async function createShare(input) {
   return response.json();
 }
 
-function requestToken(share, fileId, pathname, token = share.token) {
-  return call(`/api/shares/${share.slug}/files/${fileId}/token`, {
-    method: 'POST',
-    token,
-    body: { type: 'blob.generate-client-token', payload: { pathname, clientPayload: null, multipart: false } },
-  });
+function requestUploadUrl(share, fileId, token = share.token) {
+  return call(share.uploads[fileId].presign, { method: 'POST', token, body: {} });
+}
+
+// Where the browser would upload this file, read back from its presigned URL.
+async function uploadPath(share, index) {
+  const { url } = await (await requestUploadUrl(share, index)).json();
+  return new URL(url).searchParams.get('pathname');
 }
 
 describe('Vercel backend', () => {
-  test('tells the browser to upload straight to Blob', async () => {
+  test('hands the owner a presigned URL for exactly one file', async () => {
     const share = await createShare({ files: [{ name: 'My Photo (1).jpg', type: 'image/jpeg', size: 10 }] });
-    const { blob: target } = share.uploads[0];
+    assert.deepEqual(share.uploads, [{ presign: `/api/shares/${share.slug}/files/0/presign` }]);
 
-    assert.match(target.pathname, new RegExp(`^shares/${share.slug}/[0-9a-f]{32}/0/My-Photo-1-.jpg$`));
-    assert.equal(target.handleUploadUrl, `/api/shares/${share.slug}/files/0/token`);
-    assert.equal(target.access, 'public');
-    assert.equal(target.multipart, false);
-  });
+    assert.equal((await requestUploadUrl(share, 0, 'wrong')).status, 403);
 
-  test('only issues upload tokens to the owner, for the expected path and size', async () => {
-    const share = await createShare({ files: [{ name: 'a.txt', type: 'text/plain', size: 10 }] });
-    const { pathname } = share.uploads[0].blob;
-
-    assert.equal((await requestToken(share, '0', pathname, 'wrong')).status, 403);
-    assert.equal((await requestToken(share, '0', 'shares/elsewhere/x')).status, 400);
-
-    const granted = await (await requestToken(share, '0', pathname)).json();
-    assert.equal(granted.clientToken, 'client-token');
-    assert.equal(granted.options.maximumSizeInBytes, 10);
-    assert.equal(granted.options.allowOverwrite, false);
+    const { url, headers } = await (await requestUploadUrl(share, 0)).json();
+    assert.match(url, new RegExp(`pathname=shares/${share.slug}/[0-9a-f]{32}/0/My-Photo-1-.jpg&max=10&overwrite=false$`));
+    assert.deepEqual(headers, { 'Content-Type': 'image/jpeg' });
   });
 
   test('marks a file uploaded only once Blob has it at the right size', async () => {
     const share = await createShare({ files: [{ name: 'a.txt', type: 'text/plain', size: 10 }] });
-    const { pathname } = share.uploads[0].blob;
+    const pathname = await uploadPath(share, 0);
     const complete = () => call(`/api/shares/${share.slug}/files/0/complete`, { method: 'POST', body: {}, token: share.token });
 
     assert.equal((await complete()).status, 409);
@@ -206,8 +199,8 @@ describe('Vercel backend', () => {
         { name: 'b.html', type: 'text/html', size: 1 },
       ],
     });
-    for (const [index, target] of share.uploads.entries()) {
-      blob.put(target.blob.pathname, 1);
+    for (const index of share.uploads.keys()) {
+      blob.put(await uploadPath(share, index), 1);
       await call(`/api/shares/${share.slug}/files/${index}/complete`, { method: 'POST', body: {}, token: share.token });
     }
 
@@ -243,7 +236,7 @@ describe('Vercel backend', () => {
 
   test('sweeping deletes expired files and records', async () => {
     const share = await createShare({ files: [{ name: 'a.txt', type: 'text/plain', size: 3 }], expiresIn: 600 });
-    const { pathname } = share.uploads[0].blob;
+    const pathname = await uploadPath(share, 0);
     blob.put(pathname, 3);
     await call(`/api/shares/${share.slug}/files/0/complete`, { method: 'POST', body: {}, token: share.token });
 
@@ -255,7 +248,7 @@ describe('Vercel backend', () => {
 
   test('deleting a share removes its files', async () => {
     const share = await createShare({ files: [{ name: 'a.txt', type: 'text/plain', size: 3 }] });
-    const { pathname } = share.uploads[0].blob;
+    const pathname = await uploadPath(share, 0);
     blob.put(pathname, 3);
 
     assert.equal((await call(`/api/shares/${share.slug}`, { method: 'DELETE', token: share.token })).status, 204);

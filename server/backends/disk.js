@@ -104,7 +104,7 @@ export class DiskBackend {
     }
   }
 
-  async authorizeUpload() {
+  async presignUpload() {
     throw new HttpError(404, 'Files are uploaded directly to this server.');
   }
 

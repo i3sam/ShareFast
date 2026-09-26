@@ -33,10 +33,7 @@ export async function sendShare({ files, text, slug, expiresIn, password }, { on
 
     // Encrypted bodies are slightly larger; scale back so the bar tracks the original sizes.
     const scale = file.size / (body.size || 1);
-    await uploadOne(share, index, body, {
-      contentType: sealed ? 'application/octet-stream' : share.files[index].type,
-      onProgress: (sent) => progress('uploading', sent * scale),
-    });
+    await uploadOne(share, index, body, (sent) => progress('uploading', sent * scale));
     doneBytes += file.size;
   }
 
@@ -44,24 +41,17 @@ export async function sendShare({ files, text, slug, expiresIn, password }, { on
   return share;
 }
 
-// The server says where each file goes: straight to Vercel Blob, or a PUT to
-// the ShareFast server itself when it stores files on its own disk.
-async function uploadOne(share, index, body, { contentType, onProgress }) {
+// The server says where each file goes: a presigned Vercel Blob URL it hands
+// out on request, or a PUT to the ShareFast server when it stores files itself.
+async function uploadOne(share, index, body, onProgress) {
   const target = share.uploads[index];
   const fileId = share.files[index].id;
 
-  if (target.blob) {
-    const { upload } = await import('../vendor/blob-client.js');
-    await upload(target.blob.pathname, body, {
-      access: target.blob.access,
-      handleUploadUrl: target.blob.handleUploadUrl,
-      headers: { Authorization: `Bearer ${share.token}` },
-      multipart: target.blob.multipart,
-      contentType,
-      onUploadProgress: ({ loaded }) => onProgress(loaded),
-    });
+  if (target.presign) {
+    const { url, headers } = await api.presignUpload(target.presign, share.token);
+    await uploadFile({ url, body, headers, onProgress });
   } else {
-    await uploadFile({ url: target.url, body, token: share.token, onProgress });
+    await uploadFile({ url: target.url, body, headers: { Authorization: `Bearer ${share.token}` }, onProgress });
   }
 
   await api.completeUpload(share.slug, fileId, share.token);

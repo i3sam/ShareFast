@@ -6,7 +6,8 @@ import { VercelBackend } from './vercel.js';
 export async function createBackend(config, env = process.env) {
   const redisUrl = env.KV_REST_API_URL || env.UPSTASH_REDIS_REST_URL;
   const redisToken = env.KV_REST_API_TOKEN || env.UPSTASH_REDIS_REST_TOKEN;
-  const hasBlob = Boolean(env.BLOB_READ_WRITE_TOKEN);
+  // New Blob stores authenticate with OIDC (BLOB_STORE_ID); older ones with a static token.
+  const hasBlob = Boolean(env.BLOB_STORE_ID || env.BLOB_READ_WRITE_TOKEN);
 
   if (hasBlob && redisUrl && redisToken) {
     return new VercelBackend({ redis: new Redis({ url: redisUrl, token: redisToken }) });
